@@ -1,5 +1,7 @@
 bin/
 dist/
-config
+# The user's own lam config, if it is ever copied to the repo root.
+# Anchored: a bare "config" would also match internal/config/.
+/config
 *.local
 .env
