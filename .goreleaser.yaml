@@ -1,0 +1,58 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/lam
+    id: lam
+    binary: lam
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+universal_binaries:
+  - replace: true
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+release:
+  prerelease: auto
+
+brews:
+  - name: lam
+    homepage: "https://github.com/cduggn/lambda-cli"
+    description: "Lambda Cloud from the terminal: launch GPU instances with cloud-init, ssh, terminate"
+    repository:
+      owner: cduggn
+      name: homebrew-cduggn
+    commit_author:
+      name: cduggn
+      email: duggan.colin@gmail.com
+    install: |
+      bin.install "lam"
+    test: |
+      system "#{bin}/lam", "--version"
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs"
+      - "^test:"
