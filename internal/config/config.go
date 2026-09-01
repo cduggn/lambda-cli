@@ -22,8 +22,9 @@ type Config struct {
 	SSHPrivateKey string // local private key path
 	SSHUser       string
 	ImageFamily   string
-	CloudInit     string // default template name/path, "" = none
-	TemplatesDir  string // extra user templates dir
+	CloudInit     string   // default template name/path, "" = none
+	Exclude       []string // rsync excludes for push/pull
+	TemplatesDir  string   // extra user templates dir
 	ActiveTimeout time.Duration
 	SSHTimeout    time.Duration
 	Path          string // config file path (may not exist)
@@ -41,6 +42,7 @@ var keys = map[string]func(*Config, string){
 	"LAM_SSH_USER":        func(c *Config, v string) { c.SSHUser = v },
 	"LAM_IMAGE_FAMILY":    func(c *Config, v string) { c.ImageFamily = v },
 	"LAM_CLOUD_INIT":      func(c *Config, v string) { c.CloudInit = v },
+	"LAM_EXCLUDE":         func(c *Config, v string) { c.Exclude = splitList(v) },
 	"LAM_TEMPLATES_DIR":   func(c *Config, v string) { c.TemplatesDir = expandHome(v) },
 	"LAM_ACTIVE_TIMEOUT":  func(c *Config, v string) { c.ActiveTimeout = parseDur(v, c.ActiveTimeout) },
 	"LAM_SSH_TIMEOUT":     func(c *Config, v string) { c.SSHTimeout = parseDur(v, c.SSHTimeout) },
@@ -55,6 +57,7 @@ func Defaults() *Config {
 		SSHPrivateKey: filepath.Join(home, ".ssh", "inference-eng.pem"),
 		SSHUser:       "ubuntu",
 		ImageFamily:   "lambda-stack-22-04",
+		Exclude:       []string{".venv", "__pycache__", ".pytest_cache", ".git", ".env", ".DS_Store"},
 		TemplatesDir:  filepath.Join(home, ".config", "lam", "cloud-init"),
 		ActiveTimeout: 15 * time.Minute,
 		SSHTimeout:    5 * time.Minute,
@@ -139,6 +142,17 @@ func stripComment(v string) string {
 	return v
 }
 
+// splitList parses a comma-separated setting. An empty value clears the list.
+func splitList(v string) []string {
+	var out []string
+	for _, part := range strings.Split(v, ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 func expandHome(p string) string {
 	home, _ := os.UserHomeDir()
 	p = strings.ReplaceAll(p, "$HOME", home)
@@ -169,6 +183,7 @@ LAM_SSH_KEY=inference-eng            # key NAME as registered in Lambda (lam key
 LAM_SSH_PRIVATE_KEY=$HOME/.ssh/inference-eng.pem
 LAM_IMAGE_FAMILY=lambda-stack-22-04  # lam images
 LAM_CLOUD_INIT=                      # default template: base | vllm | /path/to/file.yaml | empty
+# LAM_EXCLUDE=.venv,__pycache__,.pytest_cache,.git,.env,.DS_Store   # rsync excludes for push/pull
 # LAM_TEMPLATES_DIR=$HOME/.config/lam/cloud-init   # your own NAME.yaml templates
 `
 

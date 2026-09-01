@@ -66,6 +66,8 @@ No filesystem and no extra firewall ruleset are ever sent; the account's global 
 lam launch [flags]          launch, wait for ssh + cloud-init, print the ssh command
 lam ls [-u]                 instances + $/hr burn rate; -u adds uptime and estimated spend
 lam ssh [ID|NAME] [-- CMD]  ssh in (no arg = the one running instance)
+lam push [SRC] [DEST]       rsync a local directory up to the instance
+lam pull SRC [DEST]         rsync a remote path back down
 lam env [ID]                print export LAMBDA=… / LAMBDA_SSH_KEY=… (matches the class .env format)
 lam wait [ID]               block until active + ssh + cloud-init are done
 lam logs [ID]               tail /var/log/cloud-init-output.log
@@ -76,6 +78,31 @@ lam keys | keys add NAME FILE.pub
 lam render NAME|FILE        show a template with {{VARS}} filled in
 lam config [init]
 ```
+
+### Moving files
+
+```bash
+lam push                       # cwd -> ~/<dirname> on the instance
+lam push ./class7 '~/class7/'  # explicit source and destination
+lam pull '~/class7/results' .  # bring results back
+lam push -n                    # dry run, transfers nothing
+lam push -- --delete           # anything after -- goes straight to rsync
+```
+
+A thin wrapper around `rsync`: it fills in the instance address and your ssh key,
+then hands off. Trailing slashes keep their usual rsync meaning, so `src/` copies
+the contents of a directory and `src` copies the directory itself.
+
+Excludes default to `.venv`, `__pycache__`, `.pytest_cache`, `.git`, `.env` and
+`.DS_Store`. Set `LAM_EXCLUDE` in the config to change the list, or pass
+`--exclude` to replace it for one run. The command it runs is echoed first, so you
+can see exactly what happened.
+
+This replaces the `setup/sync_to_lambda.sh` pattern with no `.env` file needed.
+
+Note that macOS ships openrsync, which reports itself as compatible with rsync
+2.6.9 and has no `--filter`, so gitignore-aware syncing is not available unless
+you install a newer rsync.
 
 ### Cost and uptime
 

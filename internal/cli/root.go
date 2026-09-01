@@ -146,7 +146,7 @@ func NewRoot(version string) *cobra.Command {
 		SilenceErrors: true,
 	}
 	root.AddCommand(
-		newLaunch(app), newLs(app), newSSH(app), newEnv(app), newWait(app), newLogs(app), newRm(app),
+		newLaunch(app), newLs(app), newSSH(app), newPush(app), newPull(app), newEnv(app), newWait(app), newLogs(app), newRm(app),
 		newTypes(app), newImages(app), newKeys(app), newRender(app), newConfig(app),
 	)
 	return root

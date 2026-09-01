@@ -103,3 +103,15 @@ func TestLoadPrecedence(t *testing.T) {
 		t.Errorf("$HOME not expanded: %s", c.SSHPrivateKey)
 	}
 }
+
+func TestExcludeList(t *testing.T) {
+	if got := splitList(" .venv , __pycache__ ,, .git "); len(got) != 3 || got[0] != ".venv" || got[2] != ".git" {
+		t.Errorf("splitList = %v", got)
+	}
+	if got := splitList(""); len(got) != 0 {
+		t.Errorf("empty value should clear the list, got %v", got)
+	}
+	if d := Defaults(); len(d.Exclude) == 0 {
+		t.Error("expected a default exclude list")
+	}
+}
