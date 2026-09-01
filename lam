@@ -33,7 +33,7 @@ need curl; need jq
 
 API_STATUS=""; API_BODY=""
 api() { # api METHOD PATH [JSON]
-  [[ -n "${LAMBDA_API_KEY:-}" ]] || die "LAMBDA_API_KEY not set (env or $CONFIG_FILE). Create one at https://cloud.lambda.ai/api-keys"
+  [[ -n "${LAMBDA_API_KEY:-}" && "${LAMBDA_API_KEY}" != "secret_xxx" ]] || die "LAMBDA_API_KEY not set (env or $CONFIG_FILE). Create one at https://cloud.lambda.ai/api-keys"
   local method=$1 path=$2 body=${3:-} out
   local -a data=()
   [[ -n "$body" ]] && data=(--data-binary "$body")
@@ -323,7 +323,7 @@ cmd_config() {
     *)
       cat <<EOT
 config file:          $CONFIG_FILE $([[ -f "$CONFIG_FILE" ]] && echo "(present)" || echo "(absent; run: lam config init)")
-LAMBDA_API_KEY:       $([[ -n "${LAMBDA_API_KEY:-}" ]] && echo "set (${LAMBDA_API_KEY:0:6}…)" || echo "NOT SET")
+LAMBDA_API_KEY:       $([[ -n "${LAMBDA_API_KEY:-}" && "${LAMBDA_API_KEY}" != "secret_xxx" ]] && echo "set (${LAMBDA_API_KEY:0:6}…)" || echo "NOT SET — edit $CONFIG_FILE")
 LAM_REGION:           $LAM_REGION
 LAM_TYPE:             $LAM_TYPE
 LAM_SSH_KEY:          $LAM_SSH_KEY
