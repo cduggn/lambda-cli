@@ -152,42 +152,11 @@ type LaunchRequest struct {
 	UserData         string     `json:"user_data,omitempty"`
 }
 
+// do unmarshals the response envelope's "data" field into out.
 func (c *Client) do(ctx context.Context, method, path string, in, out any) error {
-	var body io.Reader
-	if in != nil {
-		b, err := json.Marshal(in)
-		if err != nil {
-			return err
-		}
-		body = bytes.NewReader(b)
-	}
-	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, body)
+	raw, err := c.doRaw(ctx, method, path, in)
 	if err != nil {
 		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.APIKey)
-	req.Header.Set("Accept", "application/json")
-	if in != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	resp, err := c.HTTP.Do(req)
-	if err != nil {
-		return fmt.Errorf("%s %s: %w", method, path, err)
-	}
-	defer resp.Body.Close()
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode >= 400 {
-		var env struct {
-			Error APIError `json:"error"`
-		}
-		if json.Unmarshal(raw, &env) == nil && env.Error.Code != "" {
-			env.Error.Status = resp.StatusCode
-			return &env.Error
-		}
-		return &APIError{Status: resp.StatusCode, Code: fmt.Sprintf("http/%d", resp.StatusCode), Message: string(bytes.TrimSpace(raw))}
 	}
 	if out == nil {
 		return nil
@@ -199,6 +168,48 @@ func (c *Client) do(ctx context.Context, method, path string, in, out any) error
 		return fmt.Errorf("%s %s: decode envelope: %w", method, path, err)
 	}
 	return json.Unmarshal(env.Data, out)
+}
+
+// doRaw returns the whole response body, for endpoints whose envelope carries
+// sibling fields such as page_token.
+func (c *Client) doRaw(ctx context.Context, method, path string, in any) ([]byte, error) {
+	var body io.Reader
+	if in != nil {
+		b, err := json.Marshal(in)
+		if err != nil {
+			return nil, err
+		}
+		body = bytes.NewReader(b)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	req.Header.Set("Accept", "application/json")
+	if in != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%s %s: %w", method, path, err)
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		var env struct {
+			Error APIError `json:"error"`
+		}
+		if json.Unmarshal(raw, &env) == nil && env.Error.Code != "" {
+			env.Error.Status = resp.StatusCode
+			return nil, &env.Error
+		}
+		return nil, &APIError{Status: resp.StatusCode, Code: fmt.Sprintf("http/%d", resp.StatusCode), Message: string(bytes.TrimSpace(raw))}
+	}
+	return raw, nil
 }
 
 func (c *Client) InstanceTypes(ctx context.Context) (map[string]InstanceTypeItem, error) {

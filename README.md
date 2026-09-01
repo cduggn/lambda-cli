@@ -64,7 +64,7 @@ No filesystem and no extra firewall ruleset are ever sent; the account's global 
 
 ```
 lam launch [flags]          launch, wait for ssh + cloud-init, print the ssh command
-lam ls                      instances + $/hr burn rate
+lam ls [-u]                 instances + $/hr burn rate; -u adds uptime and estimated spend
 lam ssh [ID|NAME] [-- CMD]  ssh in (no arg = the one running instance)
 lam env [ID]                print export LAMBDA=… / LAMBDA_SSH_KEY=… (matches the class .env format)
 lam wait [ID]               block until active + ssh + cloud-init are done
@@ -76,6 +76,24 @@ lam keys | keys add NAME FILE.pub
 lam render NAME|FILE        show a template with {{VARS}} filled in
 lam config [init]
 ```
+
+### Cost and uptime
+
+```bash
+lam ls          # what is running, $/hr each, total burn rate
+lam ls -u       # adds UPTIME and SPENT per instance, plus total spent
+lam rm          # terminate the one running instance
+lam rm -a -y    # terminate everything, no prompt
+```
+
+Lambda's instance objects carry no launch timestamp and the API has no billing
+endpoint, so `-u` reads the account activity log and takes the earliest event for
+each instance as its start. That means one extra API call, and the figure is an
+estimate from elapsed time times the hourly rate, not what Lambda invoices.
+
+An instance with no launch event in the window shows `?`; widen it with
+`--since` (default 30 days). If the activity log cannot be read at all, `ls`
+still prints the listing and says why, rather than failing.
 
 Useful launch flags:
 

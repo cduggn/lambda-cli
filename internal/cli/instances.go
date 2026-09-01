@@ -12,29 +12,113 @@ import (
 )
 
 func newLs(app *App) *cobra.Command {
-	return &cobra.Command{
+	var uptime bool
+	var since time.Duration
+	cmd := &cobra.Command{
 		Use: "ls", Aliases: []string{"list", "ps"}, Short: "List instances and the current $/hr burn rate", Args: cobra.NoArgs,
+		Long: `List instances with their hourly rate and the total burn rate.
+
+With --uptime, add how long each instance has been up and roughly what it has
+cost so far. Lambda's instance objects carry no launch timestamp, so this reads
+the account activity log, which is one extra API call. Spend is an estimate from
+elapsed time and the hourly rate, not a billing figure.`,
+		Example: "  lam ls\n  lam ls -u\n  lam ls -u --since 90d",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 			c, _, err := app.Client()
 			if err != nil {
 				return err
 			}
-			list, err := c.Instances(cmd.Context())
+			list, err := c.Instances(ctx)
 			if err != nil {
 				return err
 			}
-			rows := [][]string{{"ID", "NAME", "TYPE", "REGION", "STATUS", "IP", "$/HR"}}
-			burn := 0.0
+
+			starts := map[string]time.Time{}
+			auditFailed := false
+			if uptime {
+				starts, err = c.InstanceStartTimes(ctx, time.Now().Add(-since))
+				if err != nil {
+					// The listing is still useful without it; don't fail the command.
+					logf("warning: could not read the activity log for uptime (%v)", err)
+					auditFailed = true
+				}
+			}
+
+			header := []string{"ID", "NAME", "TYPE", "REGION", "STATUS", "IP", "$/HR"}
+			if uptime {
+				header = append(header, "UPTIME", "SPENT")
+			}
+			rows := [][]string{header}
+			var burn, spent float64
+			unknown := 0
+			now := time.Now()
 			for _, i := range list {
-				rows = append(rows, []string{i.ID, orDash(i.Name), i.InstanceType.Name, i.Region.Name, i.Status, orDash(i.IP), usd(i.InstanceType)})
-				if i.Status == lambda.StatusActive || i.Status == lambda.StatusBooting {
+				running := i.Status == lambda.StatusActive || i.Status == lambda.StatusBooting
+				row := []string{i.ID, orDash(i.Name), i.InstanceType.Name, i.Region.Name, i.Status, orDash(i.IP), usd(i.InstanceType)}
+				if uptime {
+					up, cost := "-", "-"
+					if running {
+						if start, ok := starts[i.ID]; ok {
+							d := now.Sub(start)
+							up = shortDur(d)
+							c := d.Hours() * i.InstanceType.PriceUSD()
+							cost = fmt.Sprintf("%.2f", c)
+							spent += c
+						} else {
+							up, cost = "?", "?"
+							unknown++
+						}
+					}
+					row = append(row, up, cost)
+				}
+				if running {
 					burn += i.InstanceType.PriceUSD()
 				}
+				rows = append(rows, row)
 			}
 			table(rows)
 			fmt.Printf("\nburn rate: $%.2f/hr across running instances\n", burn)
+			// With no launch times there is no spend to report, and the warning above
+			// already said why; a "$0.00" line would read as a real figure.
+			if uptime && !auditFailed {
+				fmt.Printf("spent so far: $%.2f (estimate from the activity log, not a bill)\n", spent)
+				if unknown > 0 {
+					logf("note: %d instance(s) had no launch event in the last %s; try a longer --since", unknown, shortDur(since))
+				}
+			}
 			return nil
 		},
+	}
+	cmd.Flags().BoolVarP(&uptime, "uptime", "u", false, "add uptime and estimated spend (one extra API call)")
+	cmd.Flags().DurationVar(&since, "since", 30*24*time.Hour, "how far back to search the activity log for launch events")
+	return cmd
+}
+
+// shortDur renders a duration compactly: 3d4h, 5h12m, 42m.
+func shortDur(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	// Check before rounding: Round(time.Minute) turns 30s into 1m.
+	if d < time.Minute {
+		return "<1m"
+	}
+	d = d.Round(time.Minute)
+	days := int(d.Hours()) / 24
+	hours := int(d.Hours()) % 24
+	mins := int(d.Minutes()) % 60
+	switch {
+	case days > 0 && hours == 0:
+		return fmt.Sprintf("%dd", days)
+	case days > 0:
+		return fmt.Sprintf("%dd%dh", days, hours)
+	case hours > 0 && mins == 0:
+		return fmt.Sprintf("%dh", hours)
+	case hours > 0:
+		return fmt.Sprintf("%dh%dm", hours, mins)
+	default:
+		return fmt.Sprintf("%dm", mins)
 	}
 }
 
