@@ -1,0 +1,9 @@
+# lam config — copy to ~/.config/lam/config (lam config init does this). Sourced by bash; keep it 0600.
+LAMBDA_API_KEY=secret_xxx            # https://cloud.lambda.ai/api-keys
+
+LAM_REGION=us-east-1
+LAM_TYPE=gpu_1x_a100_sxm4            # lam types
+LAM_SSH_KEY=inference-eng            # key NAME as registered in Lambda (lam keys)
+LAM_SSH_PRIVATE_KEY=$HOME/.ssh/inference-eng.pem
+LAM_IMAGE_FAMILY=lambda-stack-22-04  # lam images
+LAM_CLOUD_INIT=                      # default template: base | vllm | /path/to/file.yaml | empty

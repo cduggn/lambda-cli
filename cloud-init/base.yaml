@@ -1,0 +1,9 @@
+#cloud-config
+# lam template "base": lightweight tooling on top of Lambda Stack. Runs once at first boot as root.
+# Progress: lam logs      Done marker: ~/.lam-ready
+package_update: true
+packages: [tmux, htop, nvtop, rsync]
+runcmd:
+  - sudo -u ubuntu -i bash -lc 'curl -LsSf https://astral.sh/uv/install.sh | sh'
+  - touch /home/ubuntu/.lam-ready && chown ubuntu:ubuntu /home/ubuntu/.lam-ready
+final_message: "lam base: cloud-init finished after $UPTIME s"
