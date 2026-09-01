@@ -26,19 +26,23 @@ Lambda has **no custom images or snapshots** on on-demand instances. What it has
 
 ## Install
 
-```bash
-brew install cduggn/cduggn/lam          # once a release is tagged
-# or
-go install github.com/cduggn/lambda-cli/cmd/lam@latest
-# or from a clone
-make install                            # -> $(go env GOPATH)/bin/lam
+From a clone. This is the supported path while the repo is private:
 
-lam config init                         # writes ~/.config/lam/config
-$EDITOR ~/.config/lam/config            # set LAMBDA_API_KEY (https://cloud.lambda.ai/api-keys)
-lam config && lam keys                  # sanity check; confirm your key name exists
+```bash
+git clone https://github.com/cduggn/lambda-cli ~/workspace/lambda-cli
+cd ~/workspace/lambda-cli && make install     # -> $(go env GOPATH)/bin/lam
+
+lam config init                               # writes ~/.config/lam/config
+$EDITOR ~/.config/lam/config                  # set LAMBDA_API_KEY (https://cloud.lambda.ai/api-keys)
+lam config && lam keys                        # sanity check; confirm your key name exists
 ```
 
+Make sure `$(go env GOPATH)/bin` is on your PATH. To pull updates: `git pull && make install`.
+
 Needs `ssh` on the PATH. No other runtime dependencies.
+
+`brew install cduggn/cduggn/lam` and `go install github.com/cduggn/lambda-cli/cmd/lam@latest` both
+need the repo to be public with a tagged release. Neither works yet. See [Release](#release).
 
 ## Defaults
 
@@ -124,8 +128,12 @@ contrib/             the original bash prototype (lam.sh) and its installer
 
 ## Release
 
-Tag `vX.Y.Z` and push. GoReleaser builds darwin/linux binaries and pushes the `lam` formula to
-`cduggn/homebrew-cduggn`. The workflow needs the `PUBLISHER_TOKEN` secret (same as ccExplorer).
+Not released yet. The repo is private, so Homebrew cannot fetch release assets and
+`go install` cannot resolve the module. Use the clone path above.
+
+When it is ready: make the repo public, add the `PUBLISHER_TOKEN` secret (the same one ccExplorer
+uses, needs repo scope on `homebrew-cduggn`), then tag `vX.Y.Z` and push the tag. GoReleaser builds
+darwin and linux binaries and pushes the `lam` formula to `cduggn/homebrew-cduggn`.
 
 ## Alternatives considered
 
